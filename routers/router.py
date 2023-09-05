@@ -1,19 +1,36 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Response
-from config.database import collection_name, collection_text
+from fastapi.responses import JSONResponse
+from config.database import (
+    collection_name,
+    collection_knowledge,
+    collection_questions,
+)
 from transformers import (
     WhisperProcessor,
     WhisperForConditionalGeneration,
     SpeechT5Processor,
     SpeechT5ForTextToSpeech,
     SpeechT5HifiGan,
+    pipeline,
 )
 from models.text import textClass
+from models.question import QuestionClass
 import librosa, io
 import torch
 import soundfile as sf
 from datasets import load_dataset
 import os
-import logging
+from docx import Document
+from datetime import datetime
+from functions.questions_answer import (
+    extract_bracketed_sentences,
+    separate_brackets,
+)
+import base64
+
+# from fastapi.responses import StreamingResponse
+# from fairseq.checkpoint_utils import load_model_ensemble_and_task_from_hf_hub
+# from fairseq.models.text_to_speech.hub_interface import TTSHubInterface
 
 
 router = APIRouter()
@@ -76,9 +93,6 @@ async def text_to_speech(request: textClass):
             status_code=400, detail="Invalid input: Text cannot be empty."
         )
 
-    # Save input text to MongoDB
-    collection_text.insert_one({"text": input_text})
-
     # Generate audio
     inputs = processor(text=input_text, return_tensors="pt")
     speech = model.generate_speech(
@@ -90,4 +104,108 @@ async def text_to_speech(request: textClass):
     sf.write(audio_buffer, speech.numpy(), samplerate=16000, format="wav")
     audio_buffer.seek(0)
 
-    return Response(audio_buffer.getvalue(), media_type="audio/wav")
+    # Encode the audio data in base64
+    audio_base64 = base64.b64encode(audio_buffer.read()).decode("utf-8")
+    print(audio_base64)
+    return JSONResponse(content={"base64_audio": audio_base64})
+
+
+@router.post("/knowledge")
+async def update_knowledge(knowledge_file: UploadFile = File(...)):
+    try:
+        document = Document(knowledge_file.file)
+        knowledge_text = ""
+        for paragraph in document.paragraphs:
+            knowledge_text += paragraph.text + " "
+
+        knowledge_text = separate_brackets(knowledge_text)
+
+        # check if knowledge already exists
+        existing_knowledge = collection_knowledge.find_one()
+        if existing_knowledge:
+            # if existing knowledge exists, remove it based on ID
+            collection_knowledge.delete_one({"_id": existing_knowledge["_id"]})
+            print("knowledge removed")
+
+        # add new knowledge
+        collection_knowledge.insert_one({"text": knowledge_text})
+        print("knowledge added")
+        return {
+            "message": "Knowledge context added successfully",
+            "knowledge_text": knowledge_text,
+        }
+
+    except Exception as e:
+        raise HTTPException(detail=e.args[0], status_code=400)
+
+
+@router.post("/question")
+async def question_answer(question: QuestionClass):
+    try:
+        # Setup Question Answering model
+        qa_pipeline = pipeline(
+            "question-answering", model="timpal0l/mdeberta-v3-base-squad2"
+        )
+
+        context = ""
+        for doc in collection_knowledge.find({}, {"text": 1}):
+            context += doc["text"] + " "
+            print(context)
+
+        result = qa_pipeline({"context": context, "question": question.text})
+        answer = result["answer"]
+
+        target_sentence = answer
+        target_index = result["start"]
+
+        matching_sentences = extract_bracketed_sentences(
+            context, target_sentence, target_index
+        )
+
+        if len(matching_sentences) > 0:
+            print("Matching bracketed sentences:")
+            for sentence in matching_sentences:
+                print(sentence.strip())
+
+        else:
+            print("No matching bracketed sentences found.")
+
+        # Save question to database
+        question_doc = {
+            "text": question.text,
+            "createdAt": datetime.now(),
+        }
+
+        question_text = collection_questions.insert_one(question_doc)
+        inserted_id = str(question_text.inserted_id)
+
+        return {
+            "relevant_answer": matching_sentences,
+            "questions_saved": {
+                "question_id": inserted_id,
+                "question_text": question.text,
+                "createdAt": question.createdAt,
+            },
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=e.args[0])
+
+
+# @router.post("/tts")
+# async def text_to_speech(text: str):
+#     models, cfg, task = load_model_ensemble_and_task_from_hf_hub(
+#         "facebook/fastspeech2-en-ljspeech",
+#         arg_overrides={"vocoder": "hifigan", "fp16": False},
+#     )
+
+#     TTSHubInterface.update_cfg_with_data_cfg(cfg, task.data_cfg)
+#     generator = task.build_generator(models, cfg)
+
+#     sample = TTSHubInterface.get_model_input(task, text)
+#     wav, rate = TTSHubInterface.get_prediction(task, models[0], generator, sample)
+
+#     # Convert audio data to bytes
+#     audio_bytes = io.BytesIO(wav.tobytes())
+
+#     return StreamingResponse(io.BytesIO(audio_bytes.read()), media_type="audio/wav")
