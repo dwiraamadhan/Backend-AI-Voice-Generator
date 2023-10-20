@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from routers.router import router
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
+load_dotenv()
 app = FastAPI()
 
 origins = ["http://localhost:3000"]
