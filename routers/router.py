@@ -4,6 +4,7 @@ from config.database import (
     collection_name,
     collection_knowledge,
     collection_questions,
+    collection_knowledge_for_pinecone,
 )
 from transformers import (
     WhisperProcessor,
@@ -220,39 +221,71 @@ async def question_answer(question: QuestionClass):
 
 # endpoint for update knowledge to pinecone
 @router.post("/knowledge_pinecone")
-async def update_knowledge_pinecone(knowledge_file: UploadFile = File(...)):
-    # read the document
-    document = Document(knowledge_file.file)
-    knowledge_text = ""
-    for paragraph in document.paragraphs:
-        knowledge_text += paragraph.text + " "
+async def update_knowledge_pinecone(
+    knowledge_file: UploadFile = File(...),
+    category_context: str = Form(...),
+):
+    try:
+        # read the document
+        document = Document(knowledge_file.file)
+        knowledge_text = ""
+        for paragraph in document.paragraphs:
+            knowledge_text += paragraph.text + " "
 
-    # split the text into chunks
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000, chunk_overlap=200, length_function=len
-    )
+        # check existing knowledge in the database mongoDB
+        existing_knowledge = collection_knowledge_for_pinecone.find_one(
+            {"category_context": category_context}
+        )
 
-    # convert the chunks into documents
-    text_splitted = text_splitter.create_documents([knowledge_text])
-    print(len(text_splitted))
+        # if exist, delete the knowledge
+        if existing_knowledge:
+            collection_knowledge_for_pinecone.delete_one(
+                {"category_context": category_context}
+            )
+            print("knowledge with category {} is deleted".format(category_context))
 
-    # initialize vector store pinecone
-    pinecone.init(
-        api_key=os.getenv("PINECONE_API_KEY"),
-        environment=os.getenv("PINECONE_ENV"),
-    )
-    index_name = "chatbot-bni-direct"
+        # add new knowledge
+        collection_knowledge_for_pinecone.insert_one(
+            {
+                "category_context": category_context,
+                "text": knowledge_text,
+            }
+        )
+        print("knowledge with category {} added".format(category_context))
 
-    # load OpenAI Embeddings model
-    embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
-    if index_name not in pinecone.list_indexes():
-        print("Index does not exist", index_name)
+        # split the text into chunks
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000, chunk_overlap=200, length_function=len
+        )
 
-    book_docsearch = Pinecone.from_texts(
-        [t.page_content for t in text_splitted], embeddings, index_name=index_name
-    )
+        # convert the chunks into documents
+        text_splitted = text_splitter.create_documents([knowledge_text])
+        print(len(text_splitted))
 
-    return {"knowledge_text": knowledge_text, "text_splitted": text_splitted}
+        # initialize vector store pinecone
+        pinecone.init(
+            api_key=os.getenv("PINECONE_API_KEY"),
+            environment=os.getenv("PINECONE_ENV"),
+        )
+        index_name = "chatbot-bni-direct"
+
+        # load OpenAI Embeddings model
+        embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
+        if index_name not in pinecone.list_indexes():
+            print("Index does not exist", index_name)
+
+        book_docsearch = Pinecone.from_texts(
+            [t.page_content for t in text_splitted], embeddings, index_name=index_name
+        )
+
+        return {
+            "knowledge_text": knowledge_text,
+            "text_splitted": text_splitted,
+            "category_context": category_context,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=e.args[0])
 
 
 # endpoint for answering using llm openAI
