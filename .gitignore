@@ -3,7 +3,5 @@ __pycache__/
 .env
 offload/
 LaMini-Flan-T5-783M/
-testing/
-db/
-volumes/
 docker-compose.yml
+volumes/
