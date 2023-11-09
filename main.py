@@ -1,7 +1,11 @@
 from fastapi import FastAPI
-from routers.router import router
+from api.add_knowledge import router as router_knowledge
+from api.question_answering import router as router_qa
+from api.speech_to_text import router as router_s2t
+from api.text_to_speech import router as router_t2s
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from pymongo.mongo_client import MongoClient
 
 load_dotenv()
 app = FastAPI()
@@ -15,12 +19,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-from pymongo.mongo_client import MongoClient
-
-uri = "mongodb://localhost:27017/"
-
 # Create a new client and connect to the server
+uri = "mongodb://localhost:27017/"
 client = MongoClient(uri)
 
 # Send a ping to confirm a successful connection
@@ -30,4 +30,7 @@ try:
 except Exception as e:
     print(e)
 
-app.include_router(router)
+app.include_router(router_knowledge)
+app.include_router(router_qa)
+app.include_router(router_s2t)
+app.include_router(router_t2s)
