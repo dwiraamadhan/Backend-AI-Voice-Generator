@@ -2,10 +2,12 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from transformers import pipeline
 import torch
 from langchain.embeddings import SentenceTransformerEmbeddings
-from langchain.vectorstores import Milvus
+from langchain.vectorstores import Milvus, ElasticsearchStore
 from langchain.llms import HuggingFacePipeline
 from langchain.chains import RetrievalQA
 import os
+from elasticsearch import Elasticsearch
+from langchain.vectorstores.pgvector import PGVector
 
 # load model question answering
 checkpoint = "LaMini-Flan-T5-783M"
@@ -35,14 +37,34 @@ def qa_llm():
     embeddings = SentenceTransformerEmbeddings(model_name=os.getenv("EMBEDDING_MODEL"))
 
     # initialize vector store Milvus
-    db = Milvus(
-        embeddings,
-        collection_name=os.getenv("MILVUS_COLLECTION"),
-        connection_args={
-            "host": os.getenv("MILVUS_HOST"),
-            "port": os.getenv("MILVUS_PORT"),
-        },
+    # db = Milvus(
+    #     embeddings,
+    #     collection_name=os.getenv("MILVUS_COLLECTION"),
+    #     connection_args={
+    #         "host": os.getenv("MILVUS_HOST"),
+    #         "port": os.getenv("MILVUS_PORT"),
+    #     },
+    # )
+
+    # es_connection = Elasticsearch(
+    #     "http://154.41.251.22:9200",
+    #     bearer_auth="UWt5cnpJc0JLNndiZXBhYlhHOTk6Ul9jVEJzenlUQy1WVURfUy1PMHBEQQ==",
+    #     # basic_auth=("magang", "magang12345"),
+    # )
+
+    # db = ElasticsearchStore(
+    #     embedding=embeddings,
+    #     index_name="chatbotBNIDirect",
+    #     es_connection=es_connection,
+    # )
+
+    COLLECTION_NAME = "chatbotBNIDirect"
+    db = PGVector(
+        collection_name=COLLECTION_NAME,
+        connection_string=os.getenv("CONNECTION_STRING"),
+        embedding_function=embeddings,
     )
+
     retriever = db.as_retriever()
 
     qa = RetrievalQA.from_chain_type(

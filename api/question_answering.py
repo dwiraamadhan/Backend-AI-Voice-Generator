@@ -9,23 +9,19 @@ router = APIRouter()
 
 @router.post("/question")
 async def answering(question: QuestionClass):
-    try:
-        # Process question
-        result = process_answer(question.text)
+    # Process question
+    result = process_answer(question.text)
 
-        # Save question to database
-        question_doc = {"text": question.text, "createdAt": datetime.now()}
-        question_text = collection_questions.insert_one(question_doc)
-        inserted_id = str(question_text.inserted_id)
+    # Save question to database
+    question_doc = {"text": question.text, "createdAt": datetime.now()}
+    question_text = collection_questions.insert_one(question_doc)
+    inserted_id = str(question_text.inserted_id)
 
-        return {
-            "relevant_answer": result,
-            "questions_saved": {
-                "question_id": inserted_id,
-                "question_text": question.text,
-                "createdAt": question.createdAt,
-            },
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=e.args[0])
+    return {
+        "relevant_answer": result,
+        "questions_saved": {
+            "question_id": inserted_id,
+            "question_text": question.text,
+            "createdAt": question.createdAt,
+        },
+    }
