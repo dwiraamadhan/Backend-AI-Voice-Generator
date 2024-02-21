@@ -3,7 +3,7 @@ from docx import Document
 from langchain.text_splitter import (
     RecursiveCharacterTextSplitter,
 )
-from langchain.embeddings import SentenceTransformerEmbeddings
+from langchain_community.embeddings import SentenceTransformerEmbeddings
 import os
 from langchain.vectorstores.pgvector import PGVector
 
@@ -42,11 +42,20 @@ async def add_knowledge(
         )
         print("embeddings sudah di load")
 
+        CONNECTION_STRING = PGVector.connection_string_from_db_params(
+            driver = os.getenv("PGVECTOR_DRIVER"),
+            host = os.getenv("PGVECTOR_HOST"),
+            port = os.getenv("PGVECTOR_PORT"),
+            database = os.getenv("PGVECTOR_DATABASE"),
+            user = os.getenv("PGVECTOR_USER"),
+            password = os.getenv("PGVECTOR_PASSWORD"),
+        )
+
         db = PGVector.from_documents(
             embedding=embeddings,
             documents=docs,
             collection_name=os.getenv("COLLECTION_NAME"),
-            connection_string=os.getenv("CONNECTION_STRING"),
+            connection_string=os.getenv(CONNECTION_STRING),
         )
 
         print("vector store PGVector sudah di load")

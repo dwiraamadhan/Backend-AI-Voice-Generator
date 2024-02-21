@@ -1,11 +1,13 @@
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from transformers import pipeline
 import torch
-from langchain.embeddings import SentenceTransformerEmbeddings
-from langchain.llms import HuggingFacePipeline
+from langchain_community.embeddings import SentenceTransformerEmbeddings
+from langchain_community.llms.huggingface_pipeline import HuggingFacePipeline
 from langchain.chains import RetrievalQA
 import os
-from langchain.vectorstores.pgvector import PGVector
+# from langchain_community.vectorstores.pgvector import PGVector
+from langchain_community.vectorstores.pinecone import Pinecone
+import pinecone
 
 # load model question answering
 checkpoint = "LaMini-Flan-T5-783M"
@@ -33,10 +35,24 @@ def llm_pipeline():
 def qa_llm():
     llm = llm_pipeline()
     embeddings = SentenceTransformerEmbeddings(model_name=os.getenv("EMBEDDING_MODEL"))
-    db = PGVector(
-        collection_name=os.getenv("COLLECTION_NAME"),
-        connection_string=os.getenv("CONNECTION_STRING"),
-        embedding_function=embeddings,
+    # CONNECTION_STRING = PGVector.connection_string_from_db_params(
+    #         driver = os.getenv("PGVECTOR_DRIVER"),
+    #         host = os.getenv("PGVECTOR_HOST"),
+    #         port = os.getenv("PGVECTOR_PORT"),
+    #         database = os.getenv("PGVECTOR_DATABASE"),
+    #         user = os.getenv("PGVECTOR_USER"),
+    #         password = os.getenv("PGVECTOR_PASSWORD"),
+    #     )
+    # db = PGVector(
+    #     collection_name=os.getenv("COLLECTION_NAME"),
+    #     connection_string=os.getenv("CONNECTION_STRING"),
+    #     embedding_function=embeddings,
+    # )
+
+    # pinecone.init(api_key=os.getenv("PINECONE_API_KEY"), environment=os.getenv("PINECONE_ENVIRONMENT"))
+    db = Pinecone.from_existing_index(
+        index_name = os.getenv("PINECONE_INDEX_NAME"),
+        embedding = embeddings
     )
 
     retriever = db.as_retriever()
