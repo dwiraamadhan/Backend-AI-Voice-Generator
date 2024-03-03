@@ -2,6 +2,6 @@ env/
 __pycache__/
 .env
 offload/
-LaMini-Flan-T5-783M/
+LaMini-T5-738M/
 docker-compose.yml
 volumes/

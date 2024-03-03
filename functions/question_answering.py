@@ -10,7 +10,7 @@ from langchain_community.vectorstores.pinecone import Pinecone
 import pinecone
 
 # load model question answering
-checkpoint = "LaMini-Flan-T5-783M"
+checkpoint = "LaMini-T5-738M"
 tokenizer = AutoTokenizer.from_pretrained(checkpoint)
 base_model = AutoModelForSeq2SeqLM.from_pretrained(
     checkpoint, device_map="auto", offload_folder="offload", torch_dtype=torch.float32
