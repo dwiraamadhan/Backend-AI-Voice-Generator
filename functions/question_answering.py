@@ -4,10 +4,10 @@ import torch
 from langchain_community.embeddings import SentenceTransformerEmbeddings
 from langchain_community.llms.huggingface_pipeline import HuggingFacePipeline
 from langchain.chains import RetrievalQA
+from langchain.prompts import PromptTemplate
 import os
-# from langchain_community.vectorstores.pgvector import PGVector
-from langchain_community.vectorstores.pinecone import Pinecone
-import pinecone
+from langchain_community.vectorstores.pgvector import PGVector
+# from langchain_community.vectorstores.pinecone import Pinecone
 
 # load model question answering
 checkpoint = "LaMini-T5-738M"
@@ -35,6 +35,21 @@ def llm_pipeline():
 def qa_llm():
     llm = llm_pipeline()
     embeddings = SentenceTransformerEmbeddings(model_name=os.getenv("EMBEDDING_MODEL"))
+
+    # create custom prompt
+    custom_prompt_template = """
+        You are a customer service of Bank Company. Please use the following pieces of information
+        to answer the user's question. If you dont know the answer, please just say that you don't
+        know the answer, don't try to make up an answer.
+
+        Context: {context}
+        Question:{question}  
+"""
+
+    prompt = PromptTemplate(template=custom_prompt_template, input_variables=["context", "question"])
+
+
+
     # CONNECTION_STRING = PGVector.connection_string_from_db_params(
     #         driver = os.getenv("PGVECTOR_DRIVER"),
     #         host = os.getenv("PGVECTOR_HOST"),
@@ -43,17 +58,19 @@ def qa_llm():
     #         user = os.getenv("PGVECTOR_USER"),
     #         password = os.getenv("PGVECTOR_PASSWORD"),
     #     )
-    # db = PGVector(
-    #     collection_name=os.getenv("COLLECTION_NAME"),
-    #     connection_string=os.getenv("CONNECTION_STRING"),
-    #     embedding_function=embeddings,
-    # )
 
-    # pinecone.init(api_key=os.getenv("PINECONE_API_KEY"), environment=os.getenv("PINECONE_ENVIRONMENT"))
-    db = Pinecone.from_existing_index(
-        index_name = os.getenv("PINECONE_INDEX_NAME"),
-        embedding = embeddings
+
+    db = PGVector(
+        collection_name=os.getenv("COLLECTION_NAME"),
+        connection_string=os.getenv("PGVECTOR_CONNECTION_STRING"),
+        embedding_function=embeddings,
     )
+
+    # os.environ["PINECONE_API_KEY"] = os.getenv("PINECONE_API_KEY")
+    # db = Pinecone.from_existing_index(
+    #     index_name = os.getenv("PINECONE_INDEX_NAME"),
+    #     embedding = embeddings
+    # )
 
     retriever = db.as_retriever()
 
@@ -61,12 +78,12 @@ def qa_llm():
         llm=llm,
         chain_type="stuff",
         retriever=retriever,
+        chain_type_kwargs={"prompt": prompt},
     )
     return qa
 
 
 def process_answer(instruction):
-    response = ""
     instruction = instruction
     qa = qa_llm()
     generated_text = qa(instruction)

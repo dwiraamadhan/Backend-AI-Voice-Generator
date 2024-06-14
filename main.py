@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from api.add_knowledge import router as router_knowledge
+from api.update_knowledge import router as router_knowledge
 from api.question_answering import router as router_qa
 from api.speech_to_text import router as router_s2t
 from api.text_to_speech import router as router_t2s
