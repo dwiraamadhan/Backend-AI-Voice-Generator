@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from api.update_knowledge import router as router_knowledge
 from api.question_answering import router as router_qa
 from api.speech_to_text import router as router_s2t
-from api.text_to_speech import router as router_t2s
+# from api.text_to_speech import router as router_t2s
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from pymongo.mongo_client import MongoClient
@@ -33,4 +33,4 @@ except Exception as e:
 app.include_router(router_knowledge)
 app.include_router(router_qa)
 app.include_router(router_s2t)
-app.include_router(router_t2s)
+# app.include_router(router_t2s)
