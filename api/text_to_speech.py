@@ -1,24 +1,24 @@
-from fastapi import APIRouter, HTTPException
-from models.text import textClass
-from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan
-from datasets import load_dataset
-import os, torch, io, base64
-import soundfile as sf
-from fastapi.responses import JSONResponse
-from functions.generate_speech import generate_speech
+# from fastapi import APIRouter, HTTPException
+# from models.text import textClass
+# # from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan
+# # from datasets import load_dataset
+# # import os, torch, io, base64
+# # import soundfile as sf
+# # from fastapi.responses import JSONResponse
+# from functions.generate_speech import generate_speech
 
-router = APIRouter()
+# router = APIRouter()
 
 
-# endpoint for text to speech
-@router.post("/text_to_speech")
-async def text_to_speech(request: textClass):
-    try:
+# # endpoint for text to speech
+# @router.post("/text_to_speech")
+# async def text_to_speech(request: textClass):
+#     try:
 
-        speech = generate_speech(request.text)
-        return{
-            "speech": speech
-        }
+#         speech = generate_speech(request.text)
+#         return{
+#             "speech": speech
+#         }
         # # Load the pre-trained models
         # processor = SpeechT5Processor.from_pretrained(os.getenv("TEXT_TO_SPEECH"))
         # model = SpeechT5ForTextToSpeech.from_pretrained(os.getenv("TEXT_TO_SPEECH"))
@@ -57,5 +57,5 @@ async def text_to_speech(request: textClass):
         # print(audio_base64)
         # return JSONResponse(content={"base64_audio": audio_base64})
 
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=e.args[0])
+    # except Exception as e:
+    #     raise HTTPException(status_code=400, detail=e.args[0])
