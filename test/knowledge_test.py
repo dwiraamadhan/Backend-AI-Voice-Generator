@@ -1,55 +1,58 @@
-import os, sys
-import pytest
-from unittest.mock import patch, MagicMock
-from fastapi import UploadFile
-from io import BytesIO
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from functions.knowledge import add_knowledge
-from docx import Document
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-def create_test_docx():
-    doc = Document()
-    doc.add_paragraph("This is a test document.")
-    with BytesIO() as f:
-        doc.save(f)
-        f.seek(0)
-        return f.read()
+import pytest
+from fastapi import UploadFile
+from unittest.mock import MagicMock
+from io import BytesIO
+from functions.knowledge import add_knowledge
+
+# Mock variabel lingkungan
+os.environ["EMBEDDING_MODEL"] = "test-model"
+os.environ["PGVECTOR_CONNECTION_STRING"] = "test-connection-string"
+os.environ["COLLECTION_NAME"] = "test-collection"
+
+# Fungsi pembantu untuk membuat mock UploadFile
+def create_mock_upload_file(filename, file_content):
+    file = BytesIO(file_content.encode())
+    return UploadFile(filename=filename, file=file)
 
 @pytest.fixture
-def mock_upload_file():
-    file_content = create_test_docx()
-    file = BytesIO(file_content)
-    upload_file = UploadFile(filename="test.docx", file=file)
-    return upload_file
+def mock_pdf_reader(mocker):
+    # Mocking PdfReader
+    mock_pdf = mocker.patch('functions.knowledge.PdfReader')
+    mock_pdf_instance = mock_pdf.return_value
+    mock_pdf_instance.pages = [MagicMock()]
+    mock_pdf_instance.pages[0].extract_text.return_value = "This is a test PDF content"
+    return mock_pdf
 
-@patch("functions.knowledge.Document")
-@patch("functions.knowledge.SentenceTransformerEmbeddings")
-@patch("functions.knowledge.PGVector")
-@patch.dict(os.environ, {"EMBEDDING_MODEL": "model_name", "PGVECTOR_CONNECTION_STRING": "connection_string", "COLLECTION_NAME": "collection_name"})
-def test_add_knowledge(mock_pgvector, mock_embeddings, mock_document, mock_upload_file):
+@pytest.fixture
+def mock_text_splitter(mocker):
+    # Mocking RecursiveCharacterTextSplitter
+    mock_splitter = mocker.patch('functions.knowledge.RecursiveCharacterTextSplitter')
+    mock_splitter_instance = mock_splitter.return_value
+    mock_splitter_instance.create_documents.return_value = ["Document chunk"]
+    return mock_splitter
 
-    # Mock Document to return a custom document
-    mock_doc_instance = MagicMock()
-    mock_doc_instance.paragraphs = [MagicMock(text="This is a test document.")]
-    mock_document.return_value = mock_doc_instance
+@pytest.fixture
+def mock_embeddings(mocker):
+    # Mocking SentenceTransformerEmbeddings
+    mock_embeddings = mocker.patch('functions.knowledge.SentenceTransformerEmbeddings')
+    return mock_embeddings
 
-    # Mock the embeddings instance
-    mock_embeddings_instance = MagicMock()
-    mock_embeddings.return_value = mock_embeddings_instance
-    mock_pgvector.from_documents.return_value = MagicMock()
+@pytest.fixture
+def mock_pgvector(mocker):
+    # Mocking PGVector
+    mock_pgvector = mocker.patch('functions.knowledge.PGVector')
+    return mock_pgvector
 
-    # Call the function
-    response = add_knowledge(mock_upload_file)
-
-    # Assertions
+def test_add_knowledge_with_pdf(mock_pdf_reader, mock_text_splitter, mock_embeddings, mock_pgvector):
+    mock_file = create_mock_upload_file("test.pdf", "PDF Content")
+    response = add_knowledge(mock_file)
     assert response == {"message": "knowledge has been added successfully"}
-    mock_document.assert_called_once_with(mock_upload_file.file)
-    mock_embeddings.assert_called_once_with(model_name="model_name")
 
-    # Verifying the structure of documents instead of using MagicMock
-    args, kwargs = mock_pgvector.from_documents.call_args
-    assert kwargs["embedding"] == mock_embeddings_instance
-    assert len(kwargs["documents"]) == 1
-    assert kwargs["documents"][0].page_content == "This is a test document."
-    assert kwargs["collection_name"] == "collection_name"
-    assert kwargs["connection_string"] == "connection_string"
+def test_add_knowledge_with_non_pdf():
+    mock_file = create_mock_upload_file("test.txt", "Text Content")
+    response = add_knowledge(mock_file)
+    assert response == {"error": "Invalid file type. Please Upload a PDF file"}
