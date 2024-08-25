@@ -24,7 +24,7 @@ def llm_pipeline():
         model=base_model,
         tokenizer=tokenizer,
         max_length=256,
-        temperature=0.3,
+        temperature=0.2,
         do_Sample=True,
         top_p=0.95,
     )
@@ -38,7 +38,7 @@ def qa_llm():
 
     # create custom prompt
     custom_prompt_template = """
-        You are a customer service of Bank Company. Please use the following pieces of information
+        Please use the following pieces of information
         to answer the user's question. If you dont know the answer, please just say that you don't
         know the answer, don't try to make up an answer.
 
@@ -47,18 +47,7 @@ def qa_llm():
 """
 
     prompt = PromptTemplate(template=custom_prompt_template, input_variables=["context", "question"])
-
-
-
-    # CONNECTION_STRING = PGVector.connection_string_from_db_params(
-    #         driver = os.getenv("PGVECTOR_DRIVER"),
-    #         host = os.getenv("PGVECTOR_HOST"),
-    #         port = os.getenv("PGVECTOR_PORT"),
-    #         database = os.getenv("PGVECTOR_DATABASE"),
-    #         user = os.getenv("PGVECTOR_USER"),
-    #         password = os.getenv("PGVECTOR_PASSWORD"),
-    #     )
-
+    
 
     db = PGVector(
         collection_name=os.getenv("COLLECTION_NAME"),
