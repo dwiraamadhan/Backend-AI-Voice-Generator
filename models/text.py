@@ -1,5 +1,5 @@
-from pydantic import BaseModel
+# from pydantic import BaseModel
 
 
-class textClass(BaseModel):
-    text: str
+# class textClass(BaseModel):
+#     text: str
