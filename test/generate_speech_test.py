@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from functions.generate_speech import generate_speech
 
 # Sample data for mocking
-sample_text = "Hello, this is a test."
+sample_text = "This is the test."
 sample_speaker_embedding = torch.rand((1, 512))  # Assuming the xvector dimension is 512
 sample_speech_output = torch.rand((16000,))  # Assuming 1 second of audio at 16kHz
 
@@ -41,3 +41,7 @@ def test_generate_speech(mock_load_dataset, mock_hifi_gan, mock_text_to_speech, 
     result = generate_speech(sample_text)
     decoded_audio = base64.b64decode(result)
     assert decoded_audio.startswith(b'RIFF'), "The result should be a WAV file encoded in base64."
+
+    # Invalid input test (empty string)
+    with pytest.raises(ValueError, match="Invalid input: Text cannot be empty."):
+        generate_speech("")
